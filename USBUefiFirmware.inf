@@ -1,0 +1,41 @@
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = USBUefiFirmware
+  FILE_GUID                      = 12345678-1234-1234-1234-123456789ABC
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = UefiMain
+
+[Sources]
+  src/main.c
+  src/usb/usb_driver.c
+  src/uefi/uefi_interface.c
+  src/firmware/firmware_loader.c
+  src/firmware/flash_manager.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+
+[LibraryClasses]
+  UefiApplicationEntryPoint
+  UefiLib
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+  MemoryAllocationLib
+  BaseMemoryLib
+  DebugLib
+  PrintLib
+  BaseLib
+
+[Protocols]
+  gEfiUsbIoProtocolGuid                    ## CONSUMES
+  gEfiUsb2HcProtocolGuid                   ## CONSUMES
+  gEfiFirmwareVolumeBlockProtocolGuid      ## CONSUMES
+  gEfiSimpleFileSystemProtocolGuid         ## CONSUMES
+  gEfiLoadedImageProtocolGuid              ## CONSUMES
+
+[Guids]
+
+[BuildOptions]
+  MSFT:*_*_*_CC_FLAGS = /wd4201 /wd4214 /wd4996
+  GCC:*_*_*_CC_FLAGS = -Wno-missing-braces -Wno-missing-field-initializers
