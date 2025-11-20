@@ -13,12 +13,23 @@
 #include <Protocol/LoadedImage.h>
 #include <Protocol/SimpleFileSystem.h>
 #include <Protocol/BlockIo.h>
+// For SecureBoot UEFI variable
+#include <Guid/GlobalVariable.h>
+// For TPM 2.0 protocol detection
+#include <Protocol/Tcg2Protocol.h>
 
 #include "uefi_interface.h"
 #include "boot_services.h"
-#include "../include/common.h"
-#include "../include/config.h"
-#include "../include/debug_utils.h"
+#include "../../include/common.h"
+#include "../../include/config.h"
+#include "../../include/debug_utils.h"
+
+//
+// Forward declarations for internal functions
+//
+STATIC EFI_STATUS GatherSystemInformation(VOID);
+STATIC VOID CalculateMemoryStatistics(IN EFI_MEMORY_DESCRIPTOR *MemoryMap, IN UINTN MapSize, IN UINTN DescriptorSize);
+STATIC VOID DetectCpuInformation(VOID);
 
 //
 // Static variables
@@ -91,7 +102,7 @@ GatherSystemInformation(VOID)
     DBG_ENTER();
     
     // Initialize system info structure
-    ZeroMemory(&mSystemInfo, sizeof(SYSTEM_INFO));
+    ZeroMemory(&mSystemInfo, sizeof(UEFI_SYSTEM_INFO));
     
     // Get UEFI version
     mSystemInfo.UefiMajorVersion = (UINT16)(gST->Hdr.Revision >> 16);
@@ -120,8 +131,27 @@ GatherSystemInformation(VOID)
         }
     }
     
-    // Detect CPU information (AMD Ryzen specific)
+    // Detect CPU information (CPUID-based)
     DetectCpuInformation();
+
+    // Cache security features (best-effort; do not fail init on errors)
+    {
+        EFI_STATUS SbStatus;
+        EFI_STATUS TpmStatus;
+        BOOLEAN SbEnabled = FALSE;
+        BOOLEAN TpmPresent = FALSE;
+        SbStatus = uefi_check_secure_boot(&SbEnabled);
+        if (EFI_ERROR(SbStatus)) {
+            SbEnabled = FALSE;
+        }
+        mSystemInfo.SecureBootEnabled = SbEnabled;
+
+        TpmStatus = uefi_check_tpm(&TpmPresent);
+        if (EFI_ERROR(TpmStatus)) {
+            TpmPresent = FALSE;
+        }
+        mSystemInfo.TpmPresent = TpmPresent;
+    }
     
     LOG_INFO("System information gathered successfully\n");
     
@@ -195,20 +225,58 @@ STATIC
 VOID
 DetectCpuInformation(VOID)
 {
-    // This would typically use CPUID instruction
-    // For now, we'll set default values for AM5/Ryzen
-    
-    StrCpyS(mSystemInfo.CpuVendor, 
-           sizeof(mSystemInfo.CpuVendor) / sizeof(CHAR16),
-           L"AuthenticAMD");
-    
-    StrCpyS(mSystemInfo.CpuFamily, 
-           sizeof(mSystemInfo.CpuFamily) / sizeof(CHAR16),
-           L"AMD Ryzen");
-    
-    mSystemInfo.CpuCores = 8;  // Default for testing
-    mSystemInfo.CpuThreads = 16; // Default for testing
-    
+    UINT32 Eax, Ebx, Ecx, Edx;
+    CHAR8  VendorAscii[13];
+    CHAR8  BrandAscii[49];
+    UINTN  i;
+    UINT32 MaxExtLeaf = 0;
+    UINT32 Cores = 0;
+
+    // Query vendor string (leaf 0)
+    AsmCpuid(0, &Eax, &Ebx, &Ecx, &Edx);
+    *(UINT32 *)&VendorAscii[0]  = Ebx; // 'GenuineIntel' or 'AuthenticAMD'
+    *(UINT32 *)&VendorAscii[4]  = Edx;
+    *(UINT32 *)&VendorAscii[8]  = Ecx;
+    VendorAscii[12] = '\0';
+
+    // Copy vendor to Unicode
+    for (i = 0; i < 12 && VendorAscii[i] != '\0' && i < (sizeof(mSystemInfo.CpuVendor)/sizeof(CHAR16)) - 1; i++) {
+        mSystemInfo.CpuVendor[i] = (CHAR16)VendorAscii[i];
+    }
+    mSystemInfo.CpuVendor[i] = L'\0';
+
+    // Brand string via extended leaves 0x80000002..4 if available
+    AsmCpuid(0x80000000, &MaxExtLeaf, &Ebx, &Ecx, &Edx);
+    if (MaxExtLeaf >= 0x80000004) {
+        UINT32 *BrandU32 = (UINT32 *)BrandAscii;
+        AsmCpuid(0x80000002, &BrandU32[0], &BrandU32[1], &BrandU32[2], &BrandU32[3]);
+        AsmCpuid(0x80000003, &BrandU32[4], &BrandU32[5], &BrandU32[6], &BrandU32[7]);
+        AsmCpuid(0x80000004, &BrandU32[8], &BrandU32[9], &BrandU32[10], &BrandU32[11]);
+        BrandAscii[48] = '\0';
+    } else {
+        // Fallback: reuse vendor as family hint
+        AsciiStrCpyS(BrandAscii, sizeof(BrandAscii), (CHAR8 *)VendorAscii);
+    }
+
+    // Copy brand to Unicode (trim leading spaces)
+    CHAR8 *BrandSrc = BrandAscii;
+    while (*BrandSrc == ' ') BrandSrc++;
+    for (i = 0; BrandSrc[i] != '\0' && i < (sizeof(mSystemInfo.CpuFamily)/sizeof(CHAR16)) - 1; i++) {
+        mSystemInfo.CpuFamily[i] = (CHAR16)BrandSrc[i];
+    }
+    mSystemInfo.CpuFamily[i] = L'\0';
+
+    // Determine core count using leaf 0x4 (EAX[31:26] + 1) if supported
+    // This is an approximation; topology leaves may be better but this is sufficient here.
+    AsmCpuid(4, &Eax, &Ebx, &Ecx, &Edx);
+    Cores = ((Eax >> 26) & 0x3F) + 1; // if leaf not valid, result might be 1
+    if (Cores == 0) {
+        Cores = 1;
+    }
+    mSystemInfo.CpuCores = Cores;
+    // Threads are unknown without SMT topology; assume at least one per core
+    mSystemInfo.CpuThreads = Cores;
+
     LOG_INFO("CPU Information:\n");
     LOG_INFO("  Vendor: %s\n", mSystemInfo.CpuVendor);
     LOG_INFO("  Family: %s\n", mSystemInfo.CpuFamily);
@@ -224,14 +292,147 @@ DetectCpuInformation(VOID)
 EFI_STATUS
 EFIAPI
 uefi_get_system_info(
-    OUT SYSTEM_INFO *SystemInfo
+    OUT UEFI_SYSTEM_INFO *SystemInfo
 )
 {
     if (SystemInfo == NULL || !mUefiInitialized) {
         return EFI_INVALID_PARAMETER;
     }
     
-    CopyMemory(SystemInfo, &mSystemInfo, sizeof(SYSTEM_INFO));
+    CopyMemory(SystemInfo, &mSystemInfo, sizeof(UEFI_SYSTEM_INFO));
+    return EFI_SUCCESS;
+}
+
+/**
+ * Get basic memory information
+ */
+EFI_STATUS
+EFIAPI
+uefi_get_memory_info(
+    OUT UINT64 *TotalMemory,
+    OUT UINT64 *AvailableMemory
+)
+{
+    if (TotalMemory == NULL || AvailableMemory == NULL) {
+        return EFI_INVALID_PARAMETER;
+    }
+    if (!mUefiInitialized) {
+        return EFI_NOT_READY;
+    }
+    *TotalMemory = mSystemInfo.TotalMemory;
+    *AvailableMemory = mSystemInfo.AvailableMemory;
+    return EFI_SUCCESS;
+}
+
+/**
+ * Detect AMD Ryzen platform (simple heuristic based on vendor string)
+ */
+EFI_STATUS
+EFIAPI
+uefi_detect_amd_platform(
+    OUT BOOLEAN *IsAmdRyzen
+)
+{
+    if (IsAmdRyzen == NULL) {
+        return EFI_INVALID_PARAMETER;
+    }
+    if (!mUefiInitialized) {
+        return EFI_NOT_READY;
+    }
+    *IsAmdRyzen = (StrStr(mSystemInfo.CpuVendor, L"AMD") != NULL) ? TRUE : FALSE;
+    return EFI_SUCCESS;
+}
+
+/**
+ * Get CPU information
+ */
+EFI_STATUS
+EFIAPI
+uefi_get_cpu_info(
+    OUT CHAR16 *CpuVendor,
+    OUT CHAR16 *CpuFamily,
+    OUT UINT32 *CpuCores
+)
+{
+    if (CpuVendor == NULL || CpuFamily == NULL || CpuCores == NULL) {
+        return EFI_INVALID_PARAMETER;
+    }
+    if (!mUefiInitialized) {
+        return EFI_NOT_READY;
+    }
+
+    StrCpyS(CpuVendor, 32, mSystemInfo.CpuVendor);
+    StrCpyS(CpuFamily, 64, mSystemInfo.CpuFamily);
+    *CpuCores = mSystemInfo.CpuCores;
+    return EFI_SUCCESS;
+}
+
+/**
+ * Check Secure Boot status via SecureBoot variable
+ */
+EFI_STATUS
+EFIAPI
+uefi_check_secure_boot(
+    OUT BOOLEAN *SecureBootEnabled
+)
+{
+    EFI_STATUS Status;
+    UINT8 SecureBoot = 0;
+    UINTN DataSize = sizeof(SecureBoot);
+    UINT32 Attributes = 0;
+
+    if (SecureBootEnabled == NULL) {
+        return EFI_INVALID_PARAMETER;
+    }
+    if (gRT == NULL) {
+        return EFI_NOT_READY;
+    }
+
+    Status = gRT->GetVariable(
+        L"SecureBoot",
+        &gEfiGlobalVariableGuid,
+        &Attributes,
+        &DataSize,
+        &SecureBoot
+    );
+    if (EFI_ERROR(Status)) {
+        return Status;
+    }
+    *SecureBootEnabled = (SecureBoot != 0);
+    // Cache
+    mSystemInfo.SecureBootEnabled = *SecureBootEnabled;
+    return EFI_SUCCESS;
+}
+
+/**
+ * Check TPM presence via TCG2 protocol
+ */
+EFI_STATUS
+EFIAPI
+uefi_check_tpm(
+    OUT BOOLEAN *TpmPresent
+)
+{
+    EFI_STATUS Status;
+    EFI_TCG2_PROTOCOL *Tcg2 = NULL;
+
+    if (TpmPresent == NULL) {
+        return EFI_INVALID_PARAMETER;
+    }
+    if (gBS == NULL) {
+        return EFI_NOT_READY;
+    }
+
+    Status = gBS->LocateProtocol(&gEfiTcg2ProtocolGuid, NULL, (VOID **)&Tcg2);
+    if (EFI_ERROR(Status) || Tcg2 == NULL) {
+        *TpmPresent = FALSE;
+        // Cache negative result as well to avoid repeated lookups later in the session
+        mSystemInfo.TpmPresent = FALSE;
+        return Status;
+    }
+    *TpmPresent = TRUE;
+    // Cache
+    mSystemInfo.TpmPresent = TRUE;
     return EFI_SUCCESS;
 }
 

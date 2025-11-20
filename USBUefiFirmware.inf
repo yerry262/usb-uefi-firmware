@@ -10,8 +10,10 @@
   src/main.c
   src/usb/usb_driver.c
   src/uefi/uefi_interface.c
+  src/uefi/boot_services.c
   src/firmware/firmware_loader.c
   src/firmware/flash_manager.c
+  src/debug_utils.c
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -33,8 +35,10 @@
   gEfiFirmwareVolumeBlockProtocolGuid      ## CONSUMES
   gEfiSimpleFileSystemProtocolGuid         ## CONSUMES
   gEfiLoadedImageProtocolGuid              ## CONSUMES
+  gEfiTcg2ProtocolGuid                     ## CONSUMES
 
 [Guids]
+  gEfiGlobalVariableGuid                   ## CONSUMES
 
 [BuildOptions]
   MSFT:*_*_*_CC_FLAGS = /wd4201 /wd4214 /wd4996

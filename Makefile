@@ -89,19 +89,23 @@ MAIN_SOURCES := $(SRC_DIR)$(PATH_SEP)main.c
 USB_SOURCES := $(SRC_DIR)$(PATH_SEP)usb$(PATH_SEP)usb_driver.c
 
 UEFI_SOURCES := $(SRC_DIR)$(PATH_SEP)uefi$(PATH_SEP)uefi_interface.c
+UEFI_SOURCES += $(SRC_DIR)$(PATH_SEP)uefi$(PATH_SEP)boot_services.c
 
 FIRMWARE_SOURCES := $(SRC_DIR)$(PATH_SEP)firmware$(PATH_SEP)firmware_loader.c
 FIRMWARE_SOURCES += $(SRC_DIR)$(PATH_SEP)firmware$(PATH_SEP)flash_manager.c
 
-ALL_SOURCES := $(MAIN_SOURCES) $(USB_SOURCES) $(UEFI_SOURCES) $(FIRMWARE_SOURCES)
+DEBUG_SOURCES := $(SRC_DIR)$(PATH_SEP)debug_utils.c
+
+ALL_SOURCES := $(MAIN_SOURCES) $(USB_SOURCES) $(UEFI_SOURCES) $(FIRMWARE_SOURCES) $(DEBUG_SOURCES)
 
 # Object Files
 MAIN_OBJECTS := $(patsubst $(SRC_DIR)$(PATH_SEP)%.c,$(OBJ_DIR)$(PATH_SEP)%$(OBJ_EXT),$(MAIN_SOURCES))
 USB_OBJECTS := $(patsubst $(SRC_DIR)$(PATH_SEP)%.c,$(OBJ_DIR)$(PATH_SEP)%$(OBJ_EXT),$(USB_SOURCES))
 UEFI_OBJECTS := $(patsubst $(SRC_DIR)$(PATH_SEP)%.c,$(OBJ_DIR)$(PATH_SEP)%$(OBJ_EXT),$(UEFI_SOURCES))
 FIRMWARE_OBJECTS := $(patsubst $(SRC_DIR)$(PATH_SEP)%.c,$(OBJ_DIR)$(PATH_SEP)%$(OBJ_EXT),$(FIRMWARE_SOURCES))
+DEBUG_OBJECTS := $(patsubst $(SRC_DIR)$(PATH_SEP)%.c,$(OBJ_DIR)$(PATH_SEP)%$(OBJ_EXT),$(DEBUG_SOURCES))
 
-ALL_OBJECTS := $(MAIN_OBJECTS) $(USB_OBJECTS) $(UEFI_OBJECTS) $(FIRMWARE_OBJECTS)
+ALL_OBJECTS := $(MAIN_OBJECTS) $(USB_OBJECTS) $(UEFI_OBJECTS) $(FIRMWARE_OBJECTS) $(DEBUG_OBJECTS)
 
 # Target Files
 TARGET_EFI := $(BIN_DIR)$(PATH_SEP)$(PROJECT_NAME).efi
@@ -162,6 +166,10 @@ $(OBJ_DIR)$(PATH_SEP)uefi$(PATH_SEP)uefi_interface$(OBJ_EXT): $(SRC_DIR)$(PATH_S
 	@echo Compiling uefi_interface.c...
 	$(CC) $(CFLAGS) $(INCLUDES) /Fo"$@" "$<"
 
+$(OBJ_DIR)$(PATH_SEP)uefi$(PATH_SEP)boot_services$(OBJ_EXT): $(SRC_DIR)$(PATH_SEP)uefi$(PATH_SEP)boot_services.c
+	@echo Compiling boot_services.c...
+	$(CC) $(CFLAGS) $(INCLUDES) /Fo"$@" "$<"
+
 # Compile firmware sources
 $(OBJ_DIR)$(PATH_SEP)firmware$(PATH_SEP)firmware_loader$(OBJ_EXT): $(SRC_DIR)$(PATH_SEP)firmware$(PATH_SEP)firmware_loader.c
 	@echo Compiling firmware_loader.c...
@@ -169,6 +177,11 @@ $(OBJ_DIR)$(PATH_SEP)firmware$(PATH_SEP)firmware_loader$(OBJ_EXT): $(SRC_DIR)$(P
 
 $(OBJ_DIR)$(PATH_SEP)firmware$(PATH_SEP)flash_manager$(OBJ_EXT): $(SRC_DIR)$(PATH_SEP)firmware$(PATH_SEP)flash_manager.c
 	@echo Compiling flash_manager.c...
+	$(CC) $(CFLAGS) $(INCLUDES) /Fo"$@" "$<"
+
+# Compile debug utilities
+$(OBJ_DIR)$(PATH_SEP)debug_utils$(OBJ_EXT): $(SRC_DIR)$(PATH_SEP)debug_utils.c
+	@echo Compiling debug_utils.c...
 	$(CC) $(CFLAGS) $(INCLUDES) /Fo"$@" "$<"
 
 # EDK2 Build (Alternative build method)

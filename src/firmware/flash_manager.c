@@ -14,9 +14,17 @@
 
 #include "flash_manager.h"
 #include "firmware_loader.h"
-#include "../include/common.h"
-#include "../include/config.h"
-#include "../include/debug_utils.h"
+#include "../../include/common.h"
+#include "../../include/config.h"
+#include "../../include/debug_utils.h"
+
+//
+// Forward declarations for internal functions
+//
+STATIC EFI_STATUS DetectFlashDevice(VOID);
+STATIC EFI_STATUS InitializeFlashRegions(VOID);
+STATIC EFI_STATUS CheckRegionWriteProtection(IN UINT32 Address, IN UINTN Size);
+STATIC EFI_STATUS CheckRegionEraseSupport(IN UINT32 Address);
 
 //
 // Static variables

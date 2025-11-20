@@ -281,7 +281,7 @@ ProcessUserCommands(VOID)
         case L't':
         case L'T':
 #ifdef ENABLE_UNIT_TESTS
-            Print(L"Running comprehensive test suite...\n");
+            Print(L"\nRunning comprehensive test suite...\n");
             Status = RunAllTests();
             if (EFI_ERROR(Status)) {
                 Print(L"Tests failed: %r\n", Status);
@@ -291,7 +291,6 @@ ProcessUserCommands(VOID)
 #else
             Print(L"Unit tests not enabled in this build\n");
 #endif
-            break;
             break;
             
         default:

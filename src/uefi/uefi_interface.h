@@ -35,6 +35,54 @@ uefi_get_system_info(
     );
 
 /**
+ * Get basic memory information (totals from cached system info)
+ */
+EFI_STATUS
+EFIAPI
+uefi_get_memory_info(
+    OUT UINT64 *TotalMemory,
+    OUT UINT64 *AvailableMemory
+    );
+
+/**
+ * Detect whether the current platform is AMD Ryzen (AM5 family)
+ */
+EFI_STATUS
+EFIAPI
+uefi_detect_amd_platform(
+    OUT BOOLEAN *IsAmdRyzen
+    );
+
+/**
+ * Get CPU information (vendor, family string, and core count)
+ */
+EFI_STATUS
+EFIAPI
+uefi_get_cpu_info(
+    OUT CHAR16 *CpuVendor,
+    OUT CHAR16 *CpuFamily,
+    OUT UINT32 *CpuCores
+    );
+
+/**
+ * Check Secure Boot status (via UEFI variable SecureBoot)
+ */
+EFI_STATUS
+EFIAPI
+uefi_check_secure_boot(
+    OUT BOOLEAN *SecureBootEnabled
+    );
+
+/**
+ * Check TPM presence (TCG2 protocol availability)
+ */
+EFI_STATUS
+EFIAPI
+uefi_check_tpm(
+    OUT BOOLEAN *TpmPresent
+    );
+
+/**
  * Display UEFI interface status
  * @return EFI_STATUS - Success or error code
  */

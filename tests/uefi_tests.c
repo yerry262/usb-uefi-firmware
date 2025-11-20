@@ -396,9 +396,9 @@ STATIC EFI_STATUS TestUefiSecurityFeatures(VOID)
     }
     
     // Test TPM detection
-    Status = uefi_check_tpm(&TmpPresent);
+    Status = uefi_check_tpm(&TpmPresent);
     if (!EFI_ERROR(Status)) {
-        Print(L"[INFO] TPM Present: %s\n", TmpPresent ? L"YES" : L"NO");
+        Print(L"[INFO] TPM Present: %s\n", TpmPresent ? L"YES" : L"NO");
         TEST_ASSERT(TRUE, "TPM check completed");
     } else {
         Print(L"[WARN] TPM status unavailable\n");

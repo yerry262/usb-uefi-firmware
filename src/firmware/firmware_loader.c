@@ -13,9 +13,9 @@
 #include <Protocol/LoadedImage.h>
 
 #include "firmware_loader.h"
-#include "../include/common.h"
-#include "../include/config.h"
-#include "../include/debug_utils.h"
+#include "../../include/common.h"
+#include "../../include/config.h"
+#include "../../include/debug_utils.h"
 
 //
 // Static variables

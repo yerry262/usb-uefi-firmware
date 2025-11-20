@@ -1,12 +1,3 @@
-:build
-:clean
-:package
-:test
-:install
-:check_hw
-:edk2_setup
-:all
-:check_prerequisites
 /**
  * @file flash_manager.h
  * @brief Flash manager public interface
