@@ -49,6 +49,13 @@ This project implements a UEFI application that runs directly from USB storage, 
 - 🔧 Firmware Validation and Loading
 - 🔧 Cross-Platform Build System
 
+### What this Project does
+This project implements a USB-bootable UEFI application that helps firmware engineers and researchers inspect, debug, and update system firmware on AMD AM5 platforms. At a high level it provides:
+
+1. A live firmware debugging and inspection interface — interactive CLI for enumerating USB devices, inspecting memory maps, reading hardware registers, and viewing system/UEFI information.
+2. Firmware management and update tooling — load and validate firmware images, stage updates, and perform controlled flash operations (with simulation/fallback modes for testing).
+3. Platform diagnostics and compatibility checks — hardware compatibility tests (CPU, chipset, USB controllers), automated test suites, and QEMU-friendly workflows for offline validation.
+
 ### Debug Capabilities
 - Real-time USB device monitoring
 - Memory map analysis
